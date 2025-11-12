@@ -1,45 +1,52 @@
-# Speech-based Grammar Score Prediction 🎤📊
+# Grammar Scoring Engine
 
-> **Competition**: SHL-Internship Assessment  
-> **Task**: Predict continuous grammar scores (1-5) from spoken audio samples  
-> **Evaluation Metrics**: Pearson Correlation & RMSE
+> **Automated Grammar Scoring System for Spoken English Audio Samples**  
+> *SHL Internship Assessment Submission*
+
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+**Evaluation Metrics:** Pearson Correlation & RMSE  
+**Task:** Predict continuous grammar scores (1-5) from 45-60 second audio samples
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Overview](#overview)
 - [Problem Statement](#problem-statement)
-- [Solution Approach](#solution-approach)
-- [Architecture](#architecture)
-- [Results](#results)
+- [System Architecture](#system-architecture)
+- [How It Works](#how-it-works)
 - [Installation](#installation)
-- [Usage](#usage)
+- [Usage Guide](#usage-guide)
 - [Project Structure](#project-structure)
-- [Model Details](#model-details)
-- [Training Details](#training-details)
-- [Inference](#inference)
-- [Evaluation](#evaluation)
+- [Model Performance](#model-performance)
+- [Technical Details](#technical-details)
 - [Future Improvements](#future-improvements)
-- [Acknowledgments](#acknowledgments)
 
 ---
 
-## 🎯 Overview
+## Overview
 
-This project implements a **multimodal deep learning solution** for automated grammar scoring of spoken English audio samples. The system combines acoustic features from audio and linguistic features from text transcripts to predict continuous grammar scores ranging from 1 (poor) to 5 (excellent).
+This project implements a **multimodal deep learning solution** that automatically scores the grammatical quality of spoken English. The system processes audio files and predicts grammar scores on a 1-5 scale, mimicking human expert evaluation.
 
 ### Key Features
 
-✅ **Multimodal Architecture** - Fuses audio (WavLM) and text (BERT) features  
-✅ **Advanced Fusion** - Bidirectional cross-attention mechanism  
-✅ **Robust Training** - 5-fold cross-validation with ensemble  
-✅ **State-of-the-art Techniques** - SWA, mixed precision, advanced augmentation  
-✅ **Production-Ready** - Complete preprocessing and inference pipeline  
+- **Automatic Speech Transcription:** Uses Whisper-large-v3 for high-accuracy audio-to-text conversion
+- **Multimodal Learning:** Combines audio (WavLM) and text (BERT) features
+- **Bidirectional Fusion:** Cross-attention mechanism for audio-text interaction
+- **Robust Training:** 5-fold cross-validation with ensemble predictions
+- **Production-Ready:** Complete preprocessing and inference pipeline
 
 ---
 
-## 📝 Problem Statement
+## Problem Statement
+
+### Dataset
+- **Training:** 409 audio samples (45-60 seconds each)
+- **Testing:** 197 audio samples
+- **Format:** WAV audio files with continuous MOS Likert Grammar Scores
 
 ### Grammar Score Rubric
 
@@ -51,498 +58,602 @@ This project implements a **multimodal deep learning solution** for automated gr
 | **4** | Strong understanding with good control; occasional minor errors that don't cause misunderstandings |
 | **5** | High grammatical accuracy with adept control of complex structures; seldom makes noticeable mistakes |
 
-### Dataset
-
-- **Training**: 409 audio samples (45-60 seconds each)
-- **Testing**: 197 audio samples
-- **Format**: WAV audio files + CSV transcripts
-- **Labels**: Continuous MOS Likert Grammar Scores (1-5)
-
 ---
 
-## 🚀 Solution Approach
-
-### 1. Multimodal Architecture
-
-Our solution leverages **two complementary modalities**:
-
-#### 🎵 Audio Branch
-- **Model**: Microsoft WavLM-base (94M parameters)
-- **Purpose**: Captures prosody, fluency, speech patterns, and acoustic cues
-- **Features**: Multi-head attention pooling over temporal features
-
-#### 📝 Text Branch
-- **Model**: BERT-base-uncased (110M parameters)
-- **Purpose**: Analyzes grammar, syntax, and linguistic structure
-- **Features**: [CLS] token representation with contextual embeddings
-
-#### 🔀 Fusion Layer
-- **Mechanism**: Bidirectional cross-attention (8 heads)
-- **Innovation**: Gated fusion learns optimal combination weights
-- **Output**: 768-dimensional multimodal representation
-
-#### 🎯 Regression Head
-- **Architecture**: Deep 6-layer MLP (768→512→384→256→128→64→1)
-- **Regularization**: Layer normalization, GELU activation, dropout
-- **Output**: Continuous score scaled to [1, 5]
-
-### 2. Training Strategy
+## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  5-Fold Cross-Validation                                │
-├─────────────────────────────────────────────────────────┤
-│  • Stratified splits for balanced distribution          │
-│  • 25 epochs per fold with early stopping               │
-│  • Weighted ensemble by Pearson correlation             │
-└─────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────┐
-│  Advanced Optimization                                  │
-├─────────────────────────────────────────────────────────┤
-│  • AdamW optimizer (lr=3e-5, wd=0.02)                   │
-│  • OneCycleLR scheduler with warmup                     │
-│  • Gradient accumulation (effective batch size: 12)     │
-│  • Mixed precision training (FP16)                      │
-│  • Gradient clipping (max norm: 1.0)                    │
-└─────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────┐
-│  Regularization Techniques                              │
-├─────────────────────────────────────────────────────────┤
-│  • Stochastic Weight Averaging (from epoch 12)          │
-│  • Layer freezing (first 4 layers of encoders)          │
-│  • Dropout (0.1-0.3 throughout network)                 │
-│  • Early stopping (patience: 8, min_delta: 0.0001)      │
-└─────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────┐
-│  Data Augmentation                                      │
-├─────────────────────────────────────────────────────────┤
-│  • Time stretching (0.9-1.1x)                           │
-│  • Pitch shifting (±5%)                                 │
-│  • Gaussian noise injection                             │
-│  • Time shifting (±15%)                                 │
-│  • Volume perturbation (0.8-1.2x)                       │
-└─────────────────────────────────────────────────────────┘
-```
-
-### 3. Custom Loss Function
-
-**RMSE-Focused Loss** = 0.5 × MSE + 0.3 × Huber + 0.2 × Ordinal
-
-- **MSE**: Direct RMSE optimization
-- **Huber**: Robustness to outliers (δ=0.5)
-- **Ordinal**: Encourages correct score ordering
-
----
-
-## 🏗️ Architecture
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                        INPUT LAYER                               │
-├──────────────────────────────────────────────────────────────────┤
-│  Audio: (batch, 160000)     Text: (batch, 512)                   │
-└──────────────────────────────────────────────────────────────────┘
-                              ↓
-        ┌─────────────────────┴─────────────────────┐
-        │                                           │
-┌───────▼─────────┐                       ┌────────▼────────┐
-│  WavLM-base     │                       │   BERT-base     │
-│  (Frozen: 0-3)  │                       │  (Frozen: 0-3)  │
-│  768-dim output │                       │  768-dim output │
-└───────┬─────────┘                       └────────┬────────┘
-        │                                          │
-        │ Multi-head                               │ [CLS]
-        │ Attention Pool                           │ Token
-        │ (8 heads)                                │
-        │                                          │
-┌───────▼─────────┐                       ┌────────▼────────┐
-│  Projection     │                       │  Projection     │
-│  768→512→384    │                       │  768→512→384    │
-│  [LN+GELU+Drop] │                       │  [LN+GELU+Drop] │
-└───────┬─────────┘                       └────────┬────────┘
-        │                                          │
-        └─────────────────────┬────────────────────┘
-                              ↓
-        ┌─────────────────────────────────────────┐
-        │    Bidirectional Cross-Attention        │
-        │    (8 heads, audio↔text)                │
-        │    + Residual Connections               │
-        └─────────────────────┬───────────────────┘
-                              ↓
-        ┌─────────────────────────────────────────┐
-        │         Gated Fusion Module             │
-        │    (Learnable combination weights)      │
-        └─────────────────────┬───────────────────┘
-                              ↓
-        ┌─────────────────────────────────────────┐
-        │         Regression Head (768-dim)       │
-        │  768→512→384→256→128→64→1               │
-        │  [Each: Linear+LN+GELU+Dropout]         │
-        └─────────────────────┬───────────────────┘
-                              ↓
-        ┌─────────────────────────────────────────┐
-        │    OUTPUT: Grammar Score [1.0, 5.0]     │
-        └─────────────────────────────────────────┘
-
-Total Parameters: ~210M
-Trainable Parameters: ~25M (12%)
+┌─────────────────────────────────────────────────────────────┐
+│                     AUDIO INPUT (WAV)                       │
+│                    (45-60 seconds)                          │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│              STEP 1: TRANSCRIPTION                          │
+│         transcription_script.py (Whisper-large-v3)          │
+│                                                             │
+│  • Loads audio files from directory                         │
+│  • Uses OpenAI Whisper-large-v3 model                       │
+│  • Generates text transcripts                               │
+│  • Saves to train_transcripts.csv / test_transcripts.csv    │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│              STEP 2: MODEL TRAINING                         │
+│            train_grammar_model.py                           │
+│                                                             │
+│  ┌─────────────────┐         ┌──────────────────┐           │
+│  │  Audio Stream   │         │  Text Stream     │           │
+│  │  (WavLM-base)   │         │  (BERT-base)     │           │
+│  │                 │         │                  │           │
+│  │  • Resample     │         │  • Tokenize      │           │
+│  │  • Normalize    │         │  • Pad/Truncate  │           │
+│  │  • Extract      │         │  • Encode        │           │
+│  │    Features     │         │    Text          │           │
+│  │  • 768-dim      │         │  • 768-dim       │           │
+│  └────────┬────────┘         └────────┬─────────┘           │
+│           │                           │                     │
+│           └───────────┬───────────────┘                     │
+│                       ▼                                     │
+│           ┌───────────────────────┐                         │
+│           │  Cross-Attention      │                         │
+│           │  Fusion Module        │                         │
+│           │  (Bidirectional)      │                         │
+│           └───────────┬───────────┘                         │
+│                       ▼                                     │
+│           ┌───────────────────────┐                         │
+│           │  Regression Head      │                         │
+│           │  (6-layer MLP)        │                         │
+│           └───────────┬───────────┘                         │
+│                       ▼                                     │
+│              Grammar Score [1-5]                            │
+│                                                             │
+│  • 5-fold cross-validation                                  │
+│  • Advanced optimization (AdamW + OneCycleLR)               │
+│  • Saves 5 model checkpoints                                │
+└─────────────────────────────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│              STEP 3: INFERENCE                              │
+│          grammarscoreengine.ipynb                           │
+│                                                             │
+│  • Loads all 5 trained models                               │
+│  • Processes test audio files                               │
+│  • Generates ensemble predictions                           │
+│  • Creates submission.csv                                   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 📊 Results
+## How It Works
 
-### Cross-Validation Performance
+### Phase 1: Audio Transcription
 
-| Fold | Pearson Correlation | RMSE |
-|------|---------------------|------|
-| 1    | 0.6484             | 0.6393 |
-| 2    | 0.5674             | 0.6661 |
-| 3    | 0.8306             | 0.5043 |
-| 4    | 0.5603             | 0.6151 |
-| 5    | 0.7714             | 0.4997 |
-| **Mean** | **0.6756 ± 0.1121** | **0.5849 ± 0.0726** |
+**Script:** `transcription_script.py`
 
-### Overall Metrics
+This script converts audio files to text transcripts using OpenAI's Whisper-large-v3 model.
 
-- **Overall CV Pearson**: 0.6756
-- **Overall CV RMSE**: 0.5849
-- **Training Time**: ~2.5 hours on single GPU (T4)
-
-### Score Distribution
-
+```python
+# Key functionality:
+1. Load audio files from train/test directories
+2. Initialize Whisper-large-v3 model (1550M parameters)
+3. Transcribe each audio file to text
+4. Save results to CSV files:
+   - train_transcripts.csv (409 samples)
+   - test_transcripts.csv (197 samples)
 ```
-Training Data Distribution:
-  Mean: 3.42 | Std: 0.89 | Range: [1.0, 5.0]
 
-Test Predictions Distribution:
-  Mean: 3.38 | Std: 0.76 | Range: [1.2, 4.8]
+**Why Whisper-large-v3?**
+- State-of-the-art speech recognition accuracy
+- Robust to accents, background noise, and speech variations
+- Provides high-quality text for downstream grammar analysis
+
+**Output Format:**
+```csv
+filename,transcript
+audio_001.wav,"Hello my name is John and I am here to..."
+audio_002.wav,"Today I would like to discuss about..."
 ```
 
 ---
 
-## 🔧 Installation
+### Phase 2: Model Training
+
+**Script:** `train_grammar_model.py`
+
+This script trains the multimodal grammar scoring model using both audio and text features.
+
+#### 2.1 Audio Processing Pipeline
+
+```python
+# WavLM-base encoder (94M parameters)
+1. Load audio file (WAV format)
+2. Resample to 16kHz (standard sample rate)
+3. Convert to mono (single channel)
+4. Normalize amplitude to [-1, 1]
+5. Pad or crop to 10 seconds (160,000 samples)
+6. Extract features using WavLM encoder
+7. Apply multi-head attention pooling (8 heads)
+8. Output: 768-dimensional audio embedding
+```
+
+**Audio Features Captured:**
+- Prosody (rhythm, stress, intonation)
+- Fluency (pauses, hesitations)
+- Speech rate and tempo
+- Acoustic patterns indicating grammar quality
+
+#### 2.2 Text Processing Pipeline
+
+```python
+# BERT-base-uncased encoder (110M parameters)
+1. Load transcript from CSV
+2. Tokenize using WordPiece tokenizer
+3. Add special tokens: [CLS] ... [SEP]
+4. Truncate or pad to 512 tokens
+5. Convert to input IDs and attention masks
+6. Extract features using BERT encoder
+7. Use [CLS] token representation
+8. Output: 768-dimensional text embedding
+```
+
+**Linguistic Features Captured:**
+- Grammatical structures and syntax
+- Sentence complexity
+- Word usage and vocabulary
+- Contextual relationships
+
+#### 2.3 Multimodal Fusion
+
+```python
+# Bidirectional Cross-Attention Mechanism
+1. Audio → Query | Text → Key, Value → Attended Audio
+2. Text → Query | Audio → Key, Value → Attended Text
+3. Gated Fusion Module:
+   gate = sigmoid(MLP([audio_features; text_features]))
+   fused = gate ⊙ attended_audio + (1-gate) ⊙ attended_text
+4. Learned combination: Model decides which modality is more important
+```
+
+#### 2.4 Training Strategy
+
+```python
+# 5-Fold Cross-Validation
+for fold in range(1, 6):
+    1. Split data stratified by score distribution
+    2. Initialize model with fresh weights
+    3. Train for 25 epochs with early stopping
+    4. Apply data augmentation (60% probability):
+       - Time stretching: 0.9-1.1x
+       - Pitch shifting: ±5%
+       - Gaussian noise injection
+       - Time shifting: ±15%
+       - Volume perturbation: 0.8-1.2x
+    5. Use mixed precision training (FP16)
+    6. Apply Stochastic Weight Averaging (SWA) from epoch 12
+    7. Save best model checkpoint
+    8. Evaluate on validation fold
+
+# After all folds: weighted ensemble based on Pearson correlation
+```
+
+**Training Outputs:**
+- `model_fold_1.pt` through `model_fold_5.pt` (model checkpoints)
+- Training plots showing loss curves and metrics
+- Cross-validation summary with performance statistics
+
+---
+
+### Phase 3: Inference & Submission
+
+**Notebook:** `grammarscoreengine.ipynb`
+
+```python
+# Inference Pipeline
+1. Load all 5 trained model checkpoints
+2. For each test audio file:
+   a. Transcribe using Whisper (if not already done)
+   b. Process audio through WavLM
+   c. Process text through BERT
+   d. Get predictions from all 5 models
+   e. Compute weighted ensemble prediction
+   f. Clip score to [1.0, 5.0] range
+3. Save predictions to submission.csv
+```
+
+**Ensemble Strategy:**
+```python
+# Weights based on fold validation Pearson correlations
+weights = [0.6484, 0.5674, 0.8306, 0.5603, 0.7714]
+weights = normalize(weights)
+
+# Final prediction
+final_score = Σ(weight_i × model_i_prediction)
+final_score = clip(final_score, 1.0, 5.0)
+```
+
+---
+
+## Installation
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.11 or higher
 - CUDA 11.8+ (for GPU support)
 - 16GB+ RAM
 - 8GB+ GPU memory (recommended)
 
-### Setup
+### Step 1: Clone Repository
 
-1. **Clone the repository**
 ```bash
-git clone <repository-url>
-cd grammar-score-prediction
+git clone https://github.com/Aryan-Verma-999/Grammar-Scoring-Engine.git
+cd Grammar-Scoring-Engine
 ```
 
-2. **Create virtual environment**
+### Step 2: Create Virtual Environment
+
 ```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# On Windows
+venv\Scripts\activate
+
+# On Linux/Mac
+source venv/bin/activate
 ```
 
-3. **Install dependencies**
+### Step 3: Install Dependencies
+
 ```bash
+# Install PyTorch with CUDA support
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# Install required libraries
 pip install transformers datasets librosa soundfile scikit-learn pandas numpy matplotlib seaborn tqdm
+
+# For Whisper transcription
+pip install openai-whisper
 ```
 
-4. **Download pre-trained models** (optional, will auto-download on first run)
-```bash
-# Models will be downloaded from HuggingFace Hub:
-# - microsoft/wavlm-base
-# - bert-base-uncased
+### Step 4: Download Models (Optional)
+
+Models will auto-download on first run, but you can pre-download:
+
+```python
+from transformers import AutoModel, AutoTokenizer
+import whisper
+
+# Download WavLM
+AutoModel.from_pretrained("microsoft/wavlm-base")
+
+# Download BERT
+AutoModel.from_pretrained("bert-base-uncased")
+AutoTokenizer.from_pretrained("bert-base-uncased")
+
+# Download Whisper
+whisper.load_model("large-v3")
 ```
 
 ---
 
-## 💻 Usage
+## Usage Guide
 
-### Training
+### Quick Start (3 Steps)
 
-1. **Update configuration in `train_grammar_model.py`**:
+#### **Step 1: Transcribe Audio Files**
 
-```python
-CONFIG = {
-    "train_audio_dir": "/path/to/train/audios",
-    "test_audio_dir": "/path/to/test/audios",
-    "train_csv": "/path/to/train.csv",
-    "test_csv": "/path/to/test.csv",
-    "train_transcripts_csv": "/path/to/train_transcripts.csv",
-    "test_transcripts_csv": "/path/to/test_transcripts.csv",
-    # ... other settings
-}
+```bash
+python transcription_script.py
 ```
 
-2. **Run training**:
+**Configuration:**
+```python
+# Edit paths in transcription_script.py
+TRAIN_AUDIO_DIR = "/path/to/train/audios"
+TEST_AUDIO_DIR = "/path/to/test/audios"
+OUTPUT_DIR = "/path/to/save/transcripts"
+```
+
+**Output:**
+- `train_transcripts.csv` - Training audio transcriptions
+- `test_transcripts.csv` - Test audio transcriptions
+
+**Runtime:** ~1-2 hours for 409+197 audio files on GPU
+
+---
+
+#### **Step 2: Train Grammar Model**
 
 ```bash
 python train_grammar_model.py
 ```
 
-**Output**:
-- Trained model checkpoints: `model_fold_1.pt` through `model_fold_5.pt`
-- Training plots: `output/multimodal_fold_*.png`
-- CV summary: `output/cv_summary.png`
+**Configuration:**
+```python
+# Edit CONFIG dictionary in train_grammar_model.py
+CONFIG = {
+    "train_audio_dir": "/path/to/train/audios",
+    "test_audio_dir": "/path/to/test/audios",
+    "train_csv": "/path/to/train.csv",  # Contains filenames and labels
+    "test_csv": "/path/to/test.csv",
+    "train_transcripts_csv": "/path/to/train_transcripts.csv",
+    "test_transcripts_csv": "/path/to/test_transcripts.csv",
+    "output_dir": "./output",
+    "batch_size": 6,
+    "num_epochs": 25,
+    "learning_rate": 3e-5,
+    "device": "cuda" if torch.cuda.is_available() else "cpu"
+}
+```
 
-### Inference
+**What Happens:**
+1. Loads audio files and transcripts
+2. Trains 5 models with cross-validation
+3. Saves checkpoints after each fold
+4. Generates training plots and metrics
+5. Computes overall RMSE and Pearson correlation
 
-Use the submission notebook `grammarscoreengine.ipynb` for generating predictions:
+**Output:**
+- `output/model_fold_1.pt` to `model_fold_5.pt` (trained models)
+- `output/multimodal_fold_*.png` (training curves)
+- `output/cv_summary.png` (cross-validation results)
+- Console output with RMSE and correlation scores
 
-1. Open the notebook in Jupyter/Kaggle
-2. Update model paths in the CONFIG section
-3. Run all cells
-4. Output: `submission.csv` with predictions
+**Runtime:** ~2.5 hours on NVIDIA T4 GPU
 
 ---
 
-## 📁 Project Structure
+#### **Step 3: Generate Predictions**
+
+```bash
+# Open Jupyter notebook
+jupyter notebook grammarscoreengine.ipynb
+```
+
+**In the Notebook:**
+1. Update model paths in CONFIG section
+2. Run all cells sequentially
+3. Final cell generates `submission.csv`
+
+**Output Format:**
+```csv
+filename,label
+test_001.wav,3.45
+test_002.wav,4.12
+test_003.wav,2.89
+...
+```
+
+---
+
+## Project Structure
 
 ```
-grammar-score-prediction/
+Grammar-Scoring-Engine/
 │
-├── train_grammar_model.py      # Training script (converted from notebook)
-├── grammarscoreengine.ipynb    # Submission notebook with inference
-├── README.md                    # This file
+├── transcription_script.py          # STEP 1: Audio → Text using Whisper-large-v3
+├── train_grammar_model.py           # STEP 2: Train multimodal model
+├── grammarscoreengine.ipynb         # STEP 3: Inference & submission
+├── README.md                        # This file
+├── requirements.txt                 # Python dependencies
 │
-├── output/                      # Training outputs (auto-created)
-│   ├── model_fold_1.pt
-│   ├── model_fold_2.pt
-│   ├── model_fold_3.pt
-│   ├── model_fold_4.pt
-│   ├── model_fold_5.pt
-│   ├── cv_summary.png
-│   ├── multimodal_fold_1.png
-│   ├── multimodal_fold_2.png
-│   └── ...
-│
-├── data/                        # Dataset (not included in repo)
+├── data/                            # Dataset (not included)
 │   ├── audios/
-│   │   ├── train/
-│   │   └── test/
+│   │   ├── train/                   # 409 training audio files
+│   │   └── test/                    # 197 test audio files
 │   └── csvs/
-│       ├── train.csv
-│       ├── test.csv
-│       ├── train_transcripts.csv
-│       └── test_transcripts.csv
+│       ├── train.csv                # Training labels
+│       ├── test.csv                 # Test filenames
+│       ├── train_transcripts.csv    # Generated by transcription_script.py
+│       └── test_transcripts.csv     # Generated by transcription_script.py
 │
-└── submission.csv               # Final predictions
+├── output/                          # Training outputs (auto-created)
+│   ├── model_fold_1.pt             # Trained model checkpoint (fold 1)
+│   ├── model_fold_2.pt             # Trained model checkpoint (fold 2)
+│   ├── model_fold_3.pt             # Trained model checkpoint (fold 3)
+│   ├── model_fold_4.pt             # Trained model checkpoint (fold 4)
+│   ├── model_fold_5.pt             # Trained model checkpoint (fold 5)
+│   ├── cv_summary.png              # Cross-validation results plot
+│   └── multimodal_fold_*.png       # Training curves for each fold
+│
+└── submission.csv                   # Final predictions (generated by notebook)
 ```
 
 ---
 
-## 🧠 Model Details
+## Model Performance
 
-### Audio Processing
+### Cross-Validation Results
 
-**Input**: WAV files (45-60 seconds, various sample rates)
+| Fold | Pearson Correlation | RMSE   |
+|------|---------------------|--------|
+| 1    | 0.6484              | 0.6393 |
+| 2    | 0.5674              | 0.6661 |
+| 3    | 0.8306              | 0.5043 |
+| 4    | 0.5603              | 0.6151 |
+| 5    | 0.7714              | 0.4997 |
+| **Mean** | **0.6756 ± 0.1121** | **0.5849 ± 0.0726** |
 
-**Preprocessing**:
-1. Resample to 16kHz
-2. Convert to mono
-3. Peak normalization to [-1, 1]
-4. Pad/crop to 10 seconds (160,000 samples)
+### Training Metrics
 
-**Feature Extraction**:
-- WavLM-base encoder extracts contextualized audio representations
-- Multi-head attention pooling aggregates temporal information
-- Output: 768-dimensional audio embedding
+- **Overall CV Pearson Correlation:** 0.6756
+- **Overall CV RMSE:** 0.5849 (Required for submission)
+- **Training Time:** ~2.5 hours on NVIDIA T4 GPU
+- **Model Size:** ~210M total parameters, ~25M trainable (12%)
 
-### Text Processing
+### Data Distribution
 
-**Input**: Speech transcripts (from ASR system)
+**Training Data:**
+- Mean: 3.42 | Std: 0.89 | Range: [1.0, 5.0]
 
-**Preprocessing**:
-1. WordPiece tokenization (BERT tokenizer)
-2. Truncate/pad to 512 tokens
-3. Add special tokens: [CLS] ... [SEP]
+**Test Predictions:**
+- Mean: 3.38 | Std: 0.76 | Range: [1.2, 4.8]
 
-**Feature Extraction**:
-- BERT-base encoder produces contextual token embeddings
-- Extract [CLS] token representation
-- Output: 768-dimensional text embedding
+---
 
-### Fusion Mechanism
+## Technical Details
 
-**Cross-Attention**:
-```
-Audio → Query | Text → Key, Value  →  Attended Audio
-Text  → Query | Audio → Key, Value →  Attended Text
-```
+### Model Architecture
 
-**Gated Fusion**:
+#### Audio Encoder (WavLM-base)
 ```python
-gate = σ(MLP([audio; text]))
-fused = gate ⊙ audio + (1-gate) ⊙ text
+Input: Audio waveform (160,000 samples @ 16kHz)
+Encoder: 12 transformer layers (94M parameters)
+Pooling: Multi-head attention (8 heads)
+Output: 768-dimensional feature vector
 ```
 
-This allows the model to learn which modality is more informative for each sample.
+#### Text Encoder (BERT-base)
+```python
+Input: Tokenized transcript (max 512 tokens)
+Encoder: 12 transformer layers (110M parameters)
+Extraction: [CLS] token representation
+Output: 768-dimensional feature vector
+```
 
----
+#### Fusion Module
+```python
+Cross-Attention: Bidirectional (audio↔text, 8 heads)
+Gated Fusion: Learnable combination weights
+Projection: 768 → 512 → 384 dimensions
+```
 
-## 🎓 Training Details
+#### Regression Head
+```python
+Architecture: 6-layer MLP
+Layers: 768 → 512 → 384 → 256 → 128 → 64 → 1
+Activation: GELU
+Regularization: LayerNorm + Dropout (0.1-0.3)
+Output: Single continuous score
+```
 
-### Hyperparameters
-
-| Parameter         | Value                               |
-|-------------------|-------------------------------------|
-| Batch Size        | 6 (effective: 12 with accumulation) |
-| Learning Rate     | 3e-5                                |
-| Weight Decay      | 0.02                                |
-| Optimizer         | AdamW (β1=0.9, β2=0.999)            |
-| Scheduler         | OneCycleLR (warmup: 15%)            |
-| Gradient Clipping | 1.0                                 |
-| Epochs            | 25 (with early stopping)            |
-| Mixed Precision   | FP16                                |
-| SWA Start         | Epoch 12                            |
-
-### Data Augmentation
-
-Applied with 60% probability during training:
-
-- **Time Stretching**: 0.9-1.1x (40% of augmented samples)
-- **Pitch Shifting**: ±5% (30%)
-- **Gaussian Noise**: 0.001-0.008 level (50%)
-- **Time Shifting**: ±15% (40%)
-- **Volume Perturbation**: 0.8-1.2x (50%)
-
-### Computational Requirements
-
-- **Training**: ~2.5 hours on NVIDIA T4 GPU
-- **Memory**: 8GB GPU, 16GB RAM
-- **Storage**: ~2GB for model checkpoints
-
----
-
-## 🔮 Inference
-
-### Ensemble Prediction
-
-The final submission uses a **weighted ensemble** of all 5 fold models:
+### Training Configuration
 
 ```python
-# Weights based on fold Pearson correlations
-weights = [0.6484, 0.5674, 0.8306, 0.5603, 0.7714]
-weights = weights / sum(weights)  # Normalize
+Optimizer: AdamW
+  - Learning rate: 3e-5
+  - Weight decay: 0.02
+  - Betas: (0.9, 0.999)
 
-# Ensemble prediction
-pred = sum(w * model_i(x) for w, model_i in zip(weights, models))
-pred = clip(pred, 1.0, 5.0)
+Scheduler: OneCycleLR
+  - Max LR: 3e-5
+  - Warmup: 15% of steps
+  - Annealing: Cosine
+
+Regularization:
+  - Gradient clipping: max_norm=1.0
+  - Dropout: 0.1-0.3 throughout
+  - Layer freezing: First 4 layers of encoders
+  - Early stopping: patience=8, min_delta=0.0001
+
+Advanced Techniques:
+  - Mixed precision training (FP16)
+  - Gradient accumulation (steps=2)
+  - Stochastic Weight Averaging (from epoch 12)
+  - Data augmentation (60% probability)
 ```
 
-### Test-Time Augmentation (Optional)
-
-For even more robust predictions:
+### Loss Function
 
 ```python
-# Generate multiple augmented versions
-preds = [model(augment(x)) for _ in range(3)]
-final_pred = mean(preds)
+# RMSE-optimized composite loss
+loss = 0.5 × MSE + 0.3 × Huber + 0.2 × Ordinal
+
+Where:
+- MSE: Mean Squared Error (direct RMSE optimization)
+- Huber: Robust to outliers (delta=0.5)
+- Ordinal: Encourages correct score ordering
+```
+
+### Data Augmentation (Audio)
+
+Applied during training with 60% probability:
+
+```python
+Augmentations:
+1. Time Stretching: 0.9-1.1x (40% of augmented samples)
+2. Pitch Shifting: ±5% (30%)
+3. Gaussian Noise: 0.001-0.008 level (50%)
+4. Time Shifting: ±15% (40%)
+5. Volume Perturbation: 0.8-1.2x (50%)
 ```
 
 ---
 
-## 📈 Evaluation
+## Future Improvements
 
-### Metrics
-
-1. **Pearson Correlation** (Primary)
-   - Measures linear relationship between predictions and ground truth
-   - Range: [-1, 1], higher is better
-
-2. **RMSE** (Root Mean Squared Error)
-   - Measures prediction accuracy
-   - Range: [0, ∞), lower is better
-
-### Validation Strategy
-
-- **5-Fold Cross-Validation**: Ensures robust generalization
-- **Stratified Splits**: Maintains label distribution across folds
-- **Out-of-Fold Predictions**: Used for ensemble weight calibration
-
----
-
-## 🚀 Future Improvements
-
-### Architecture Enhancements
-
-1. **Hierarchical Attention**: Better handling of long audio sequences
-2. **Multi-Task Learning**: Joint prediction of fluency, pronunciation, vocabulary
-3. **Uncertainty Quantification**: Bayesian approaches for confidence estimation
-4. **Transformer XL**: Longer context modeling
+### Model Enhancements
+- **Hierarchical Attention:** Better handling of long audio sequences
+- **Multi-Task Learning:** Joint prediction of fluency, pronunciation, vocabulary
+- **Uncertainty Quantification:** Bayesian approaches for confidence estimation
+- **Transformer-XL:** Longer context modeling for extended audio
 
 ### Training Improvements
+- **Curriculum Learning:** Progressive training from easy to hard samples
+- **Focal Loss:** Focus on hard-to-classify samples
+- **Active Learning:** Select most informative samples for labeling
+- **Knowledge Distillation:** Compress ensemble into single efficient model
 
-1. **Curriculum Learning**: Train on easy samples first
-2. **Focal Loss**: Focus on hard-to-classify samples
-3. **Active Learning**: Select most informative samples for labeling
-4. **Knowledge Distillation**: Compress ensemble into single model
+### Data Augmentation
+- **Synthetic Data:** Generate augmented samples with TTS
+- **Back-Translation:** Text augmentation for linguistic diversity
+- **External Data:** Leverage larger speech/grammar datasets
+- **Semi-Supervised Learning:** Use unlabeled audio samples
 
-### Data Enhancements
-
-1. **Synthetic Data**: Generate augmented samples with TTS
-2. **Back-Translation**: Text augmentation for better linguistic diversity
-3. **External Data**: Leverage larger speech/grammar datasets
-4. **Semi-Supervised Learning**: Use unlabeled audio samples
-
-### Deployment
-
-1. **Model Quantization**: INT8 for faster inference
-2. **ONNX Export**: Framework-agnostic deployment
-3. **REST API**: Web service for real-time scoring
-4. **Mobile Optimization**: TensorFlow Lite for on-device inference
+### Deployment Optimization
+- **Model Quantization:** INT8 for faster inference
+- **ONNX Export:** Framework-agnostic deployment
+- **REST API:** Web service for real-time scoring
+- **Mobile Optimization:** TensorFlow Lite for on-device inference
 
 ---
 
-## 🎯 Key Takeaways
+## Key Learnings
 
-### What Worked Well
-
-✅ **Multimodal Fusion**: Combining audio and text provides complementary information  
-✅ **Cross-Attention**: Allows modalities to interact and inform each other  
-✅ **SWA**: Improves generalization by averaging model weights  
-✅ **Mixed Precision**: Speeds up training without sacrificing quality  
-✅ **Ensemble**: 5-fold ensemble significantly reduces variance  
-
-### Challenges Faced
-
-⚠️ **Small Dataset**: 409 training samples limits model capacity  
-⚠️ **Label Subjectivity**: Grammar scoring has inherent annotation variance  
-⚠️ **Transcript Quality**: ASR errors can impact text branch performance  
-⚠️ **Computational Cost**: Large models require significant GPU resources  
-
-### Lessons Learned
-
-💡 **Less is More**: Freezing early layers prevents overfitting on small data  
-💡 **Augmentation Matters**: Audio augmentation crucial for generalization  
-💡 **Loss Design**: Custom loss function tailored to RMSE metric improves results  
-💡 **Careful Tuning**: Learning rate and scheduler critical for convergence  
+✅ **Multimodal Fusion Works:** Combining audio and text provides complementary information  
+✅ **Cross-Attention is Powerful:** Allows modalities to interact and inform each other  
+✅ **SWA Improves Generalization:** Weight averaging reduces overfitting  
+✅ **Ensemble Reduces Variance:** 5-fold ensemble significantly improves stability  
+💡 **Less is More:** Freezing early layers prevents overfitting on small datasets  
+💡 **Augmentation Matters:** Audio augmentation crucial for generalization  
+💡 **Loss Design is Critical:** Custom loss tailored to RMSE improves results
 
 ---
 
-## 📚 References
+## References
 
-### Models
-
-- **WavLM**: [WavLM: Large-Scale Self-Supervised Pre-Training for Full Stack Speech Processing](https://arxiv.org/abs/2110.13900)
-- **BERT**: [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805)
-
-### Techniques
-
-- **SWA**: [Averaging Weights Leads to Wider Optima and Better Generalization](https://arxiv.org/abs/1803.05407)
-- **Mixed Precision**: [Mixed Precision Training](https://arxiv.org/abs/1710.03740)
-- **Cross-Attention**: [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
+- **WavLM:** [Large-Scale Self-Supervised Pre-Training for Full Stack Speech Processing](https://arxiv.org/abs/2110.13900)
+- **BERT:** [Pre-training of Deep Bidirectional Transformers](https://arxiv.org/abs/1810.04805)
+- **Whisper:** [Robust Speech Recognition via Large-Scale Weak Supervision](https://arxiv.org/abs/2212.04356)
+- **SWA:** [Averaging Weights Leads to Wider Optima](https://arxiv.org/abs/1803.05407)
+- **Cross-Attention:** [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
 
 ---
 
-## 👤 Author
+## Author
 
 **Aryan Verma**
 - GitHub: [@Aryan-Verma-999](https://github.com/Aryan-Verma-999)
 - Email: aryan-999@outlook.com
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
+
+## Acknowledgments
+
+- SHL for providing the assessment opportunity
+- HuggingFace for pre-trained models
+- OpenAI for Whisper model
+
+---
+
+**If you find this project helpful, please consider giving it a star!**
